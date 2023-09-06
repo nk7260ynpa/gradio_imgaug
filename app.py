@@ -1,30 +1,35 @@
 import numpy as np
-import gradio as gr
 from PIL import Image
-
 import torch
+import torchvision as trv
+import gradio as gr
 
-model = torch.hub.load('pytorch/vision:v0.6.0', 'resnet50', pretrained=True).eval()
+def Preprocess(img):
+    img = np.array(img)
+    tensor = trv.transforms.Compose([trv.transforms.ToTensor()])(img)
+    tensor = trv.transforms.Resize((256, 256), antialias=True)(tensor)
+    return tensor
 
-import requests
-from PIL import Image
-from torchvision import transforms
+def imgaug():
+    transforms = trv.transforms.Compose([trv.transforms.RandomRotation(30),
+                                         trv.transforms.RandomGrayscale(p=0.5)])
+    return transforms
 
-# Download human-readable labels for ImageNet.
-response = requests.get("https://git.io/JJkYN")
-labels = response.text.split("\n")
+def ProProcess(tensor):
+    tensor = torch.clip(tensor, min=0.0, max=1.0)
+    img = tensor.cpu().permute(1, 2, 0).numpy()
+    return img
 
-def predict(inp):
-    inp = inp.resize((224, 224))
-    img = inp
-    inp = transforms.ToTensor()(inp).unsqueeze(0)
-    with torch.no_grad():
-        prediction = torch.nn.functional.softmax(model(inp)[0], dim=0)
-        confidences = {labels[i]: float(prediction[i]) for i in range(1000)}
-    return img, confidences
+def Process(img):
+    tensor = Preprocess(img)
+    transforms = imgaug()
+    tensor = transforms(tensor)
+    img = ProProcess(tensor)
+    return img
 
-
-gr.Interface(fn=predict,
+demo = gr.Interface(fn=Process,
              inputs=gr.Image(type="pil"),
-             outputs=["image", gr.Label(num_top_classes=3)],
-             examples=["bus.jpg", "sheep.jpg"]).launch()
+             outputs=["image"],
+             examples=["parachute.jpeg", "bus.jpg", "sheep.jpg"])
+    
+demo.launch()  
