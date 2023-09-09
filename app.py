@@ -7,29 +7,24 @@ import gradio as gr
 def Preprocess(img):
     img = np.array(img)
     tensor = trv.transforms.Compose([trv.transforms.ToTensor()])(img)
-    tensor = trv.transforms.Resize((256, 256), antialias=True)(tensor)
     return tensor
 
-def imgaug():
-    transforms = trv.transforms.Compose([trv.transforms.RandomRotation(30),
-                                         trv.transforms.RandomGrayscale(p=0.5)])
-    return transforms
-
-def ProProcess(tensor):
+def Tensor_To_img(tensor):
     tensor = torch.clip(tensor, min=0.0, max=1.0)
-    img = tensor.cpu().permute(1, 2, 0).numpy()
+    img = tensor.permute(1, 2, 0).numpy()
     return img
 
-def Process(img):
+
+def TransFunction(img, RotateAngle):
     tensor = Preprocess(img)
-    transforms = imgaug()
-    tensor = transforms(tensor)
-    img = ProProcess(tensor)
+    tensor = trv.transforms.functional.rotate(tensor, RotateAngle)
+    img = Tensor_To_img(tensor)
     return img
+    
 
-demo = gr.Interface(fn=Process,
-             inputs=gr.Image(type="pil"),
-             outputs=["image"],
-             examples=["parachute.jpeg", "bus.jpg", "sheep.jpg"])
+demo = gr.Interface(fn=TransFunction,
+                    inputs=[gr.Image(type="pil"), gr.Slider(-180, 180, value=0)],
+                    outputs=["image"],
+                    examples=[["parachute.jpeg", None],["bus.jpg", None], ["sheep.jpg", None]])
     
 demo.launch()  
